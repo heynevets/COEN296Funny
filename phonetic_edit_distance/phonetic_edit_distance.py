@@ -3,13 +3,11 @@
 This module contains functions that find common words with nearby phonetic
 pronunciations to a word given by the user.
 
-Currently uses the Levenshtein distances (1-add, 1-delete, 2-sub) to calculate
-the edit distance and finds the edit distance between the passed word and all
-other words in the common word dictionary
-
+The cost for substituting a phoneme can be set as a class attribute giving 
+slightly different behavior depending on which is used (it appaers a cost of
+1 will give more rhymes)
 
 """
-
 
 class PunWordFinder:
     """Find similar sounding words based on the CMU phoneme dictionary
@@ -33,12 +31,14 @@ class PunWordFinder:
         GOOGLE_WORDS_FILE_NAME (str): path of file containing common words that form our
             search space
         CMU_DICT_FILE_NAME (str): path of the file containing the CMU phoneme dictionary
+        SUBSTITUE_COST (int): how much should it cost to substitute a phoneme (1 or 2)
 
     """
 
     MIN_LENGTH = 2
     GOOGLE_WORDS_FILE_NAME = "google10k.txt"
     CMU_DICT_FILE_NAME = "cmudict.dict"
+    SUBSTITUTE_COST = 1
 
     def __init__(self):
         """Initialize the two phonetic dictionaries we will use to find similar words
@@ -85,8 +85,7 @@ class PunWordFinder:
         return self._phonetic_dict[word]
 
 
-    @staticmethod
-    def _calc_edit_distance(base_phonemes, target_phonemes):
+    def _calc_edit_distance(self, base_phonemes, target_phonemes):
         """Dynamic programming technique to find edit distance between two strings
 
         Instead of strings of letters we will use lists of phonemes
@@ -109,9 +108,10 @@ class PunWordFinder:
                     #letter already in correct place, no cost
                     distance_matrix[i][j] = distance_matrix[i-1][j-1]
                 else:
-                    distance_matrix[i][j] = 1 + min(distance_matrix[i][j-1],
-                                                    distance_matrix[i-1][j],
-                                                    (distance_matrix[i-1][j-1] + 1))
+                    distance_matrix[i][j] = min(distance_matrix[i][j-1] + 1,
+                                                distance_matrix[i-1][j] + 1,
+                                                (distance_matrix[i-1][j-1] + 
+                                                    self.SUBSTITUTE_COST))
 
         return distance_matrix[len(target_phonemes)][len(base_phonemes)]
 
@@ -200,6 +200,8 @@ def main():
             print("Word:", word)
             print("\tDistance:", distance)
             print("\tPhonemes:", word_finder.get_phonemes(word))
+
+        print()
 
 if __name__ == "__main__":
     main()
