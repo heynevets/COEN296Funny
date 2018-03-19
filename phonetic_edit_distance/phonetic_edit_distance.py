@@ -3,11 +3,13 @@
 This module contains functions that find common words with nearby phonetic
 pronunciations to a word given by the user.
 
-The cost for substituting a phoneme can be set as a class attribute giving 
+The cost for substituting a phoneme can be set as a class attribute giving
 slightly different behavior depending on which is used (it appaers a cost of
 1 will give more rhymes)
 
 """
+
+import nltk
 
 class PunWordFinder:
     """Find similar sounding words based on the CMU phoneme dictionary
@@ -18,7 +20,7 @@ class PunWordFinder:
     alike.
 
     Because the CMU phoneme dict is very large and full of non-useful words,
-    we filter out many of them using the 10k most common english words. These
+    we filter out many of them using the 20k most common english words. These
     are found in the file refered to by `GOOGLE_WORDS_FILE_NAME`
 
     Note:
@@ -32,13 +34,16 @@ class PunWordFinder:
             search space
         CMU_DICT_FILE_NAME (str): path of the file containing the CMU phoneme dictionary
         SUBSTITUE_COST (int): how much should it cost to substitute a phoneme (1 or 2)
+        IGNORE_SAME_STEM (bool): should we ignore words that have the same porter stem as
+            the base word?
 
     """
 
     MIN_LENGTH = 2
-    GOOGLE_WORDS_FILE_NAME = "google10k.txt"
+    GOOGLE_WORDS_FILE_NAME = "20k.txt"
     CMU_DICT_FILE_NAME = "cmudict.dict"
     SUBSTITUTE_COST = 1
+    IGNORE_SAME_STEM = True
 
     def __init__(self):
         """Initialize the two phonetic dictionaries we will use to find similar words
@@ -49,6 +54,7 @@ class PunWordFinder:
 
         self._phonetic_dict = self._get_phonetic_dict()
         self._filtered_dict = self._get_filtered_dict(self._phonetic_dict)
+        self._stemmer = nltk.stem.PorterStemmer()
 
 
     def search(self, base_word):
@@ -76,7 +82,9 @@ class PunWordFinder:
             return None
 
 
-        edit_distances = self._get_edit_distances(phonemes)
+        stem = self._stemmer.stem(base_word)
+
+        edit_distances = self._get_edit_distances(phonemes, stem)
 
         return edit_distances
 
@@ -110,17 +118,22 @@ class PunWordFinder:
                 else:
                     distance_matrix[i][j] = min(distance_matrix[i][j-1] + 1,
                                                 distance_matrix[i-1][j] + 1,
-                                                (distance_matrix[i-1][j-1] + 
-                                                    self.SUBSTITUTE_COST))
+                                                (distance_matrix[i-1][j-1] +
+                                                 self.SUBSTITUTE_COST))
 
         return distance_matrix[len(target_phonemes)][len(base_phonemes)]
 
 
-    def _get_edit_distances(self, base_phonemes):
+    def _get_edit_distances(self, base_phonemes, base_stem):
 
         edit_distances_list = list()
 
         for word, phonemes in self._filtered_dict.items():
+
+            #skip words with the same stem as the base word
+            if self.IGNORE_SAME_STEM and self._stemmer.stem(word) == base_stem:
+                continue
+
             edit_distance = self._calc_edit_distance(base_phonemes, phonemes)
 
             edit_distances_list.append((word, edit_distance))
@@ -196,7 +209,10 @@ def main():
         print("Candidates:")
         print()
 
-        for word, distance in edit_distances[1:6]:
+        if edit_distances[0][0] == base_word:
+            edit_distances.pop(0)
+
+        for word, distance in edit_distances[:5]:
             print("Word:", word)
             print("\tDistance:", distance)
             print("\tPhonemes:", word_finder.get_phonemes(word))
