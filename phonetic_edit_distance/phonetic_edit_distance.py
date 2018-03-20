@@ -57,7 +57,7 @@ class PunWordFinder:
         self._stemmer = nltk.stem.PorterStemmer()
 
 
-    def search(self, base_word):
+    def search(self, base_words):
         """Searches for similar sounding words to the passed base_word
 
         If the word cannot be found in the CMU phonetic dictionary we will exit
@@ -76,21 +76,30 @@ class PunWordFinder:
 
         #search the larger phonetic dictonary, if not found return
         try:
-            phonemes = self._phonetic_dict[base_word]
+            phonemes = list()
+            for word in base_words:
+                phonemes.extend(self._phonetic_dict[word])
         except KeyError:
             print("Could not find word pronunciation")
             return None
 
 
-        stem = self._stemmer.stem(base_word)
+        if len(base_words) == 1:
+            stem = self._stemmer.stem(base_words[0])
+        else:
+            stem = None
 
         edit_distances = self._get_edit_distances(phonemes, stem)
 
         return edit_distances
 
 
-    def get_phonemes(self, word):
-        return self._phonetic_dict[word]
+    def get_phonemes(self, words):
+        phonemes = list()
+        for word in words:
+            phonemes.extend(self._phonetic_dict[word])
+
+        return phonemes
 
 
     def _calc_edit_distance(self, base_phonemes, target_phonemes):
@@ -191,17 +200,17 @@ def main():
     while True:
 
         print("Enter base word: ", end='')
-        base_word = input()
-        base_word = base_word.lower()
+        base_words = input()
+        base_words = base_words.lower().split(' ')
 
-        edit_distances = word_finder.search(base_word)
+        edit_distances = word_finder.search(base_words)
 
         if not edit_distances:
             #word not found, continue
             continue
 
-        print("Searching for:", base_word)
-        print("Phonemes: ", word_finder.get_phonemes(base_word))
+        print("Searching for:", base_words)
+        print("Phonemes: ", word_finder.get_phonemes(base_words))
 
         print()
         print('~~~~~~~~~~~~~~~~~~~~')
@@ -209,13 +218,13 @@ def main():
         print("Candidates:")
         print()
 
-        if edit_distances[0][0] == base_word:
+        if edit_distances[0][0] == base_words:
             edit_distances.pop(0)
 
         for word, distance in edit_distances[:5]:
             print("Word:", word)
             print("\tDistance:", distance)
-            print("\tPhonemes:", word_finder.get_phonemes(word))
+            print("\tPhonemes:", word_finder.get_phonemes([word]))
 
         print()
 
